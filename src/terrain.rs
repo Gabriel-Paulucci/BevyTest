@@ -31,6 +31,7 @@ fn gen_mesh(noise: NoiseMap) -> Mesh {
     let mut vertices = Vec::with_capacity(width * height);
     let mut indices = Vec::with_capacity((width - 1) * (height - 1) * 6);
     let mut colors = Vec::with_capacity(width * height);
+    let mut uvs = Vec::with_capacity(width * height);
 
     let mut vertex_index = 0_usize;
 
@@ -51,6 +52,8 @@ fn gen_mesh(noise: NoiseMap) -> Mesh {
                 indices.push((vertex_index + 1) as u32);
             }
 
+            uvs.push([x as f32 / width as f32, y as f32 / height as f32]);
+
             colors.push([1., 0., 1.]);
 
             vertex_index += 1;
@@ -66,21 +69,26 @@ fn gen_mesh(noise: NoiseMap) -> Mesh {
         Mesh::ATTRIBUTE_COLOR,
         VertexAttributeValues::Float32x3(colors),
     );
+    mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, VertexAttributeValues::Float32x2(uvs));
     mesh.set_indices(Some(Indices::U32(indices)));
-
     mesh
 }
 
-pub fn gen_terrain(mut command: Commands, mut meshes: ResMut<Assets<Mesh>>) {
+pub fn gen_terrain(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
     let noise_map = gen_perlin_noise(1024, 1024);
     let mesh = gen_mesh(noise_map);
 
-    command
+    commands
         .spawn()
         .insert(Terrain)
         .insert(Transform::from_xyz(0., 0., 0.))
         .insert_bundle(PbrBundle {
             mesh: meshes.add(mesh),
+            material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
             ..Default::default()
         });
 }
