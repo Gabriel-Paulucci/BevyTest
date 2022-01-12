@@ -31,7 +31,7 @@ fn gen_mesh(noise: NoiseMap) -> Mesh {
     let mut vertices = Vec::with_capacity(width * height);
     let mut indices = Vec::with_capacity((width - 1) * (height - 1) * 6);
     let mut uvs = Vec::with_capacity(width * height);
-    let mut normals = Vec::with_capacity(width * height);
+    let mut normals = vec![[0., 0., 0.]; width * height];
 
     let mut vertex_index = 0_usize;
 
@@ -39,7 +39,7 @@ fn gen_mesh(noise: NoiseMap) -> Mesh {
         for x in 0..width {
             let possition = [
                 top_left_x + x as f32,
-                (noise.get_value(x, y) * 5.) as f32,
+                (noise.get_value(x, y) * 50.5) as f32,
                 top_left_z - y as f32,
             ];
 
@@ -49,7 +49,6 @@ fn gen_mesh(noise: NoiseMap) -> Mesh {
                 indices.push(vertex_index as u32);
                 indices.push((vertex_index + width + 1) as u32);
                 indices.push((vertex_index + width) as u32);
-
                 indices.push((vertex_index + width + 1) as u32);
                 indices.push(vertex_index as u32);
                 indices.push((vertex_index + 1) as u32);
@@ -60,11 +59,43 @@ fn gen_mesh(noise: NoiseMap) -> Mesh {
                 y as f32 / (height - 1) as f32,
             ]);
 
-            normals.push([0., noise.get_value(x, y) as f32, 0.]);
-
             vertex_index += 1;
         }
     }
+
+    let triangle_count = vertices.len() / 3;
+    let mut index = 0;
+
+    'calc_normals: loop {
+        if index >= triangle_count {
+            break 'calc_normals;
+        }
+
+        let normal_index = index * 3;
+
+        let point_a = Vec3::from(vertices[indices[normal_index] as usize]);
+        let point_b = Vec3::from(vertices[indices[normal_index + 1] as usize]);
+        let point_c = Vec3::from(vertices[indices[normal_index + 2] as usize]);
+
+        let side_ab = point_b - point_a;
+        let side_ac = point_c - point_a;
+
+        let normalized = side_ab.cross(side_ac).normalize();
+
+        let normal_a = Vec3::from(normals[normal_index]) + normalized;
+        let normal_b = Vec3::from(normals[normal_index + 1]) + normalized;
+        let normal_c = Vec3::from(normals[normal_index + 2]) + normalized;
+
+        normals[normal_index] = normal_a.normalize().into();
+        normals[normal_index + 1] = normal_b.normalize().into();
+        normals[normal_index + 2] = normal_c.normalize().into();
+
+        index += 1;
+    }
+
+    // println!("vertices = len: {} {:?}\n", vertices.len(), vertices);
+    // println!("normals = len: {} {:?}\n", normals.len(), normals);
+    // println!("uvs = len: {} {:?}\n", uvs.len(), uvs);
 
     let mut mesh = Mesh::new(TriangleList);
     mesh.set_attribute(
@@ -85,7 +116,7 @@ pub fn gen_terrain(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let noise_map = gen_perlin_noise(1024, 1024);
+    let noise_map = gen_perlin_noise(2040, 2048);
     let mesh = gen_mesh(noise_map);
 
     commands
@@ -116,8 +147,8 @@ pub fn gen_terrain(
                 far: 5.0,
                 ..Default::default()
             },
-            shadow_depth_bias: 0.0,
-            shadow_normal_bias: 0.0,
+            shadow_depth_bias: 0.9,
+            shadow_normal_bias: 2.,
             shadows_enabled: true,
             ..Default::default()
         },
